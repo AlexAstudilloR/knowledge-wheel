@@ -6,4 +6,5 @@ import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
   plugins: [vue(), tailwindcss()],
+  base: '/knowledge-wheel/'
 });
