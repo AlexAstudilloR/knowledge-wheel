@@ -5,7 +5,9 @@
     </h1>
 
     <!-- Subida del archivo -->
-    <div class="bg-white p-6 rounded-2xl shadow-md w-full max-w-2xl mx-auto">
+    <div
+      class="bg-white p-6 rounded-2xl shadow-md w-full max-w-2xl mx-auto mb-6"
+    >
       <h2
         class="text-xl font-semibold mb-6 text-gray-700 flex items-center gap-2"
       >
@@ -38,7 +40,7 @@
     </div>
 
     <!-- Botón de descarga -->
-    <div v-if="students.length" class="mt-8">
+    <div v-if="students.length" class="mt-4">
       <button
         @click="downloadPDF"
         :disabled="isGeneratingPDF"
@@ -54,7 +56,7 @@
       </button>
     </div>
 
-    <!-- Radar de cada estudiante con observación -->
+    <!-- Lista de estudiantes con inputs para curso -->
     <div
       v-if="students.length"
       class="grid md:grid-cols-2 lg:grid-cols-2 gap-6 mt-10 w-full max-w-6xl"
@@ -62,9 +64,45 @@
       <div
         v-for="(student, index) in students"
         :key="`student-${index}-${student.Nombre}`"
-        class="print-zone"
+        class="print-zone bg-white p-4 rounded-2xl shadow-md"
       >
+        <!-- Nombre y curso editable -->
+        <div class="flex flex-col mb-4">
+          <label class="text-sm font-semibold text-gray-700 mb-1">Nombre</label>
+          <input
+            type="text"
+            v-model="student.Nombre"
+            class="border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-400 focus:outline-none"
+          />
+        </div>
+
+        <div class="flex flex-col mb-4">
+          <label class="text-sm font-semibold text-gray-700 mb-1">Curso</label>
+          <input
+            type="text"
+            v-model="student.Curso"
+            placeholder="Ej: 3ºA"
+            class="border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-400 focus:outline-none"
+          />
+        </div>
+
+        <!-- Radar chart del estudiante -->
         <RadarChartStudent :student="student" />
+
+        <!-- Observaciones por materia -->
+        <div class="mt-4 space-y-3">
+          <div v-for="(label, idx) in materias" :key="idx">
+            <label class="block text-sm font-medium text-gray-700 mb-1">{{
+              label
+            }}</label>
+            <textarea
+              v-model="student.observations[label]"
+              :placeholder="`Escribe una observación para ${label}...`"
+              class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-400 focus:outline-none resize-none"
+              rows="2"
+            ></textarea>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -123,25 +161,30 @@ function handleFileUpload(e) {
       .filter((student) => {
         if (!student.Nombre || student.Nombre.trim() === "") return false;
         const values = [
-          student.Conocimientos,
-          student.Habilidades,
-          student.Actitudes,
-          student["Trabajo en equipo"],
-          student["Dominio de las TIC"],
+          student["Lengua y Literatura"],
+          student["Matemática"],
+          student["C. Naturales"],
+          student["E. Sociales"],
+          student["E. Física"],
+          student["ECA"],
+          student["Inglés"],
         ];
         return values.some((val) => typeof val === "number" && val > 0);
       })
       .slice(0, 10);
 
-    // Inicializar observaciones por cada habilidad
+    // Inicializar observaciones por cada habilidad y curso
     filteredStudents.forEach((s) => {
       s.observations = {
-        Conocimientos: "",
-        Habilidades: "",
-        Actitudes: "",
-        "Trabajo en equipo": "",
-        "Dominio de las TIC": "",
+        "Lengua y Literatura": "",
+        Matemática: "",
+        "C. Naturales": "",
+        "E. Sociales": "",
+        "E. Física": "",
+        ECA: "",
+        Inglés: "",
       };
+      s.Curso = "";
     });
 
     students.value = filteredStudents;
@@ -153,12 +196,16 @@ function handleFileUpload(e) {
  * Función para obtener color según puntaje (V2)
  */
 const getColorByScore = (score) => {
-  if (score >= 10) return { bg: 'rgba(34, 197, 94, 0.3)', border: 'rgba(34, 197, 94, 1)' } // Verde
-  if (score >= 9) return { bg: 'rgba(234, 179, 8, 0.3)', border: 'rgba(234, 179, 8, 1)' } // Amarillo
-  if (score >= 8) return { bg: 'rgba(249, 115, 22, 0.3)', border: 'rgba(249, 115, 22, 1)' } // Naranja
-  if (score >= 7) return { bg: 'rgba(239, 68, 68, 0.3)', border: 'rgba(239, 68, 68, 1)' } // Rojo
-  return { bg: 'rgba(156, 163, 175, 0.3)', border: 'rgba(156, 163, 175, 1)' } // Gris para < 7
-}
+  if (score >= 10)
+    return { bg: "rgba(34, 197, 94, 0.3)", border: "rgba(34, 197, 94, 1)" }; // Verde
+  if (score >= 9)
+    return { bg: "rgba(234, 179, 8, 0.3)", border: "rgba(234, 179, 8, 1)" }; // Amarillo
+  if (score >= 8)
+    return { bg: "rgba(249, 115, 22, 0.3)", border: "rgba(249, 115, 22, 1)" }; // Naranja
+  if (score >= 7)
+    return { bg: "rgba(239, 68, 68, 0.3)", border: "rgba(239, 68, 68, 1)" }; // Rojo
+  return { bg: "rgba(156, 163, 175, 0.3)", border: "rgba(156, 163, 175, 1)" }; // Gris para < 7
+};
 
 /**
  * Genera un gráfico radar IDÉNTICO al componente RadarChartStudent.vue V2
@@ -166,19 +213,23 @@ const getColorByScore = (score) => {
  */
 async function generateRadarImage(student) {
   const labels = [
-    "Conocimientos",
-    "Habilidades",
-    "Actitudes",
-    "Trabajo en equipo",
-    "Dominio de las TIC",
+    "Lengua y Literatura",
+    "Matemática",
+    "C. Naturales",
+    "E. Sociales",
+    "E. Física",
+    "ECA",
+    "Inglés",
   ];
 
   // Obtener colores dinámicos para cada aptitud
-  const conocimientosColor = getColorByScore(student.Conocimientos || 0);
-  const habilidadesColor = getColorByScore(student.Habilidades || 0);
-  const actitudesColor = getColorByScore(student.Actitudes || 0);
-  const trabajoEquipoColor = getColorByScore(student["Trabajo en equipo"] || 0);
-  const ticColor = getColorByScore(student["Dominio de las TIC"] || 0);
+  const lenguaColor = getColorByScore(student["Lengua y Literatura"] || 0);
+  const matematicaColor = getColorByScore(student["Matemática"] || 0);
+  const naturalesColor = getColorByScore(student["C. Naturales"] || 0);
+  const socialesColor = getColorByScore(student["E. Sociales"] || 0);
+  const fisicaColor = getColorByScore(student["E. Física"] || 0);
+  const ecaColor = getColorByScore(student["ECA"] || 0);
+  const inglesColor = getColorByScore(student["Inglés"] || 0);
 
   // Tamaño reducido del canvas para optimizar peso
   const canvas = document.createElement("canvas");
@@ -191,76 +242,120 @@ async function generateRadarImage(student) {
       labels,
       datasets: [
         {
-          label: "Conocimientos",
+          label: "Lengua y Literatura",
           data: [
-            student.Conocimientos || 0,
-            (student.Conocimientos || 0) * 0.2,
+            student["Lengua y Literatura"] || 0,
+            (student["Lengua y Literatura"] || 0) * 0.2,
             0,
             0,
-            (student.Conocimientos || 0) * 0.2,
+            0,
+            0,
+            (student["Lengua y Literatura"] || 0) * 0.2,
           ],
-          backgroundColor: conocimientosColor.bg,
-          borderColor: conocimientosColor.border,
+          backgroundColor: lenguaColor.bg,
+          borderColor: lenguaColor.border,
           fill: true,
           borderWidth: 1,
           pointRadius: 0,
         },
         {
-          label: "Habilidades",
+          label: "Matemática",
           data: [
-            (student.Habilidades || 0) * 0.2,
-            student.Habilidades || 0,
-            (student.Habilidades || 0) * 0.2,
+            (student["Matemática"] || 0) * 0.2,
+            student["Matemática"] || 0,
+            (student["Matemática"] || 0) * 0.2,
+            0,
+            0,
             0,
             0,
           ],
-          backgroundColor: habilidadesColor.bg,
-          borderColor: habilidadesColor.border,
+          backgroundColor: matematicaColor.bg,
+          borderColor: matematicaColor.border,
           fill: true,
           borderWidth: 1,
           pointRadius: 0,
         },
         {
-          label: "Actitudes",
+          label: "C. Naturales",
           data: [
             0,
-            (student.Actitudes || 0) * 0.2,
-            student.Actitudes || 0,
-            (student.Actitudes || 0) * 0.2,
+            (student["C. Naturales"] || 0) * 0.2,
+            student["C. Naturales"] || 0,
+            (student["C. Naturales"] || 0) * 0.2,
+            0,
+            0,
             0,
           ],
-          backgroundColor: actitudesColor.bg,
-          borderColor: actitudesColor.border,
+          backgroundColor: naturalesColor.bg,
+          borderColor: naturalesColor.border,
           fill: true,
           borderWidth: 1,
           pointRadius: 0,
         },
         {
-          label: "Trabajo en equipo",
+          label: "E. Sociales",
           data: [
             0,
             0,
-            (student["Trabajo en equipo"] || 0) * 0.2,
-            student["Trabajo en equipo"] || 0,
-            (student["Trabajo en equipo"] || 0) * 0.2,
+            (student["E. Sociales"] || 0) * 0.2,
+            student["E. Sociales"] || 0,
+            (student["E. Sociales"] || 0) * 0.2,
+            0,
+            0,
           ],
-          backgroundColor: trabajoEquipoColor.bg,
-          borderColor: trabajoEquipoColor.border,
+          backgroundColor: socialesColor.bg,
+          borderColor: socialesColor.border,
           fill: true,
           borderWidth: 1,
           pointRadius: 0,
         },
         {
-          label: "Dominio de las TIC",
+          label: "E. Física",
           data: [
-            (student["Dominio de las TIC"] || 0) * 0.2,
             0,
             0,
-            (student["Dominio de las TIC"] || 0) * 0.2,
-            student["Dominio de las TIC"] || 0,
+            0,
+            (student["E. Física"] || 0) * 0.2,
+            student["E. Física"] || 0,
+            (student["E. Física"] || 0) * 0.2,
+            0,
           ],
-          backgroundColor: ticColor.bg,
-          borderColor: ticColor.border,
+          backgroundColor: fisicaColor.bg,
+          borderColor: fisicaColor.border,
+          fill: true,
+          borderWidth: 1,
+          pointRadius: 0,
+        },
+        {
+          label: "ECA",
+          data: [
+            0,
+            0,
+            0,
+            0,
+            (student["ECA"] || 0) * 0.2,
+            student["ECA"] || 0,
+            (student["ECA"] || 0) * 0.2,
+          ],
+          backgroundColor: ecaColor.bg,
+          borderColor: ecaColor.border,
+          fill: true,
+          borderWidth: 1,
+          pointRadius: 0,
+        },
+        {
+          label: "Inglés",
+          data: [
+            (student["Inglés"] || 0) * 0.2,
+            0,
+            0,
+            0,
+            0,
+            (student["Inglés"] || 0) * 0.2,
+            student["Inglés"] || 0,
+          ],
+          backgroundColor: inglesColor.bg,
+          borderColor: inglesColor.border,
           fill: true,
           borderWidth: 1,
           pointRadius: 0,
@@ -279,15 +374,21 @@ async function generateRadarImage(student) {
             stepSize: 1,
             color: "#666",
             backdropColor: "transparent",
-            font: { size: 12 },
+            font: {
+              size: 12,
+            },
           },
           grid: {
             color: "rgba(0,0,0,0.1)",
             circular: true,
           },
-          angleLines: { color: "rgba(0,0,0,0.2)" },
+          angleLines: {
+            color: "rgba(0,0,0,0.2)",
+          },
           pointLabels: {
-            font: { size: 13 },
+            font: {
+              size: 13,
+            },
             color: "#333",
           },
         },
@@ -296,20 +397,25 @@ async function generateRadarImage(student) {
         legend: {
           position: "top",
           labels: {
-            font: { size: 11 },
+            font: {
+              size: 11,
+            },
             padding: 10,
           },
         },
-        tooltip: { enabled: false },
+        tooltip: {
+          enabled: false,
+        },
       },
       elements: {
-        line: { tension: 0 },
+        line: {
+          tension: 0,
+        },
       },
     },
   });
 
   await new Promise((resolve) => setTimeout(resolve, 500));
-
   const imageData = canvas.toDataURL("image/png");
   chart.destroy();
   return imageData;
@@ -335,7 +441,6 @@ const downloadPDF = async () => {
 
     for (let i = 0; i < students.value.length; i++) {
       const s = students.value[i];
-
       if (i > 0) pdf.addPage();
 
       // Título: Nombre del estudiante
@@ -343,6 +448,14 @@ const downloadPDF = async () => {
       pdf.setFontSize(20);
       pdf.setTextColor(30, 58, 138);
       pdf.text(s.Nombre || "Estudiante sin nombre", pageWidth / 2, 35, {
+        align: "center",
+      });
+
+      // Curso debajo del nombre
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(14);
+      pdf.setTextColor(50, 50, 50);
+      pdf.text(s.Curso || "Sin curso", pageWidth / 2, 55, {
         align: "center",
       });
 
@@ -354,7 +467,7 @@ const downloadPDF = async () => {
         chartImg,
         "PNG",
         chartX,
-        55,
+        70,
         chartSize,
         chartSize,
         undefined,
@@ -362,22 +475,24 @@ const downloadPDF = async () => {
       );
 
       // Sección de observaciones
-      let yPos = 355;
+      let yPos = 370;
       pdf.setFont("helvetica", "bold");
       pdf.setFontSize(13);
       pdf.setTextColor(0, 0, 0);
       pdf.text("Observaciones por Habilidad:", 40, yPos);
-
       yPos += 18;
+
       pdf.setFont("helvetica", "normal");
       pdf.setFontSize(10);
 
       const labels = [
-        "Conocimientos",
-        "Habilidades",
-        "Actitudes",
-        "Trabajo en equipo",
-        "Dominio de las TIC",
+        "Lengua y Literatura",
+        "Matemática",
+        "C. Naturales",
+        "E. Sociales",
+        "E. Física",
+        "ECA",
+        "Inglés",
       ];
 
       for (const label of labels) {
@@ -387,7 +502,6 @@ const downloadPDF = async () => {
 
         const observation = s.observations[label] || "Sin observaciones";
         const lines = pdf.splitTextToSize(observation, pageWidth - 80);
-
         yPos += 13;
         pdf.text(lines, 40, yPos);
         yPos += lines.length * 11 + 6;
@@ -414,9 +528,8 @@ const downloadPDF = async () => {
   }
 };
 </script>
-
 <style scoped>
 .print-zone {
-  background-color: rgb(255, 255, 255) !important;
+  background-color: #fff !important;
 }
 </style>
